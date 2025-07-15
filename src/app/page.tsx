@@ -9,6 +9,7 @@ export default function Home() {
         <p className="max-w-xl mx-auto text-lg md:text-xl text-gray-600 mb-8">
           Ship backend automations faster with AI + workflows. No engineering team required.
         </p>
+        <div className="text-4xl font-bold text-blue-600">✅ Tailwind is working!</div>
         <div className="flex justify-center gap-4">
           <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-full transition">
             Get Started

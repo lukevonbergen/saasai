@@ -13,6 +13,19 @@ interface TeamMember {
   joined_at: string
 }
 
+// Type of each row returned from Supabase
+interface SupabaseTeamRow {
+  user_id: string
+  role: string
+  joined_at: string
+  profiles: {
+    first_name: string | null
+    last_name: string | null
+    phone: string | null
+    company_name: string | null
+  } | null
+}
+
 export default function TeamPage() {
   const [team, setTeam] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,36 +36,51 @@ export default function TeamPage() {
       const userId = sessionData.session?.user.id
       if (!userId) return
 
-      // Step 1: Get org_id for current user
+      // Get the org_id for the current user
       const { data: memberData, error: memberError } = await supabase
         .from("organization_members")
         .select("org_id")
         .eq("user_id", userId)
         .single()
 
-      if (memberError || !memberData) return console.error("No org found", memberError)
+      if (memberError || !memberData) {
+        console.error("No org found", memberError)
+        return
+      }
 
       const orgId = memberData.org_id
 
-      // Step 2: Get all members of this org
+      // Fetch all members of this org, with profiles joined
       const { data: teamData, error: teamError } = await supabase
-        .from("organization_members")
-        .select("user_id, role, joined_at, profiles(first_name, last_name, phone, company_name)")
-        .eq("org_id", orgId)
+  .from("organization_members")
+  .select(
+    `
+    user_id,
+    role,
+    joined_at,
+    profiles (
+      first_name,
+      last_name,
+      phone,
+      company_name
+    )
+    `
+  )
+  .eq("org_id", orgId) as unknown as { data: SupabaseTeamRow[] | null, error: any }
 
-      if (teamError) {
+      if (teamError || !teamData) {
         console.error("Error fetching team", teamError)
         return
       }
 
-      const parsed = teamData.map((member) => ({
+      const parsed: TeamMember[] = (teamData as SupabaseTeamRow[]).map((member) => ({
         id: member.user_id,
         role: member.role,
         joined_at: member.joined_at,
-        first_name: member.profiles?.first_name || "",
-        last_name: member.profiles?.last_name || "",
-        phone: member.profiles?.phone || "",
-        company_name: member.profiles?.company_name || "",
+        first_name: member.profiles?.first_name ?? "",
+        last_name: member.profiles?.last_name ?? "",
+        phone: member.profiles?.phone ?? "",
+        company_name: member.profiles?.company_name ?? "",
       }))
 
       setTeam(parsed)

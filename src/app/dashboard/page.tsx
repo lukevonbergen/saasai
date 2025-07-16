@@ -2,7 +2,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
 export default async function DashboardPage() {
-  const cookieStore = await cookies(); // required in new Next.js versions
+  const cookieStore = cookies(); // required in new Next.js versions
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
   const { data: { user }, error } = await supabase.auth.getUser();

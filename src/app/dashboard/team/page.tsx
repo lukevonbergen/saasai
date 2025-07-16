@@ -66,7 +66,7 @@ export default function TeamPage() {
     )
     `
   )
-  .eq("org_id", orgId) as unknown as { data: SupabaseTeamRow[] | null, error: any }
+  .eq("org_id", orgId) as unknown as { data: SupabaseTeamRow[] | null; error: unknown }
 
       if (teamError || !teamData) {
         console.error("Error fetching team", teamError)

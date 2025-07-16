@@ -126,7 +126,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                     id={id}
                     name={id}
                     type={id.toLowerCase().includes("password") ? "password" : id === "email" ? "email" : id === "phone" ? "tel" : "text"}
-                    value={(form as any)[id]}
+                    value={form[id as keyof typeof form]}
                     onChange={handleChange}
                     required
                     className="bg-white/10 text-white placeholder-white/60 border-white/20 focus-visible:ring-white"

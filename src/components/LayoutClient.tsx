@@ -6,7 +6,7 @@ import Footer from "./Footer"
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isDashboard = pathname.startsWith("/dashboard")
+const isDashboard = pathname?.startsWith("/dashboard") ?? false
 
   return (
     <>

@@ -1,10 +1,35 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { PlusCircle } from "lucide-react";
 
-const dummyFlows = [
+type FlowStatus = "active" | "inactive" | "error";
+
+interface Flow {
+  id: string;
+  name: string;
+  status: FlowStatus;
+  runs: number;
+  lastRun: string;
+}
+
+const initialFlows: Flow[] = [
   {
     id: "flow-1",
     name: "Gmail Responser",
@@ -29,16 +54,70 @@ const dummyFlows = [
 ];
 
 export default function FlowsPage() {
+  const [flows, setFlows] = useState<Flow[]>(initialFlows);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [checkingGmail, setCheckingGmail] = useState(true);
+
+  // Check if Gmail is connected
+  useEffect(() => {
+    const check = async () => {
+      setCheckingGmail(true);
+      const res = await fetch("/api/gmail/is-connected");
+      const data = await res.json();
+      setGmailConnected(data.connected === true);
+      setCheckingGmail(false);
+    };
+    check();
+  }, []);
+
+  const handleToggle = async (flowId: string, currentStatus: FlowStatus) => {
+    const action = currentStatus === "active" ? "pause" : "resume";
+
+    setFlows((prev) =>
+      prev.map((flow) =>
+        flow.id === flowId
+          ? { ...flow, status: action === "pause" ? "inactive" : "active" }
+          : flow
+      )
+    );
+
+    try {
+      const res = await fetch("/api/flow/toggle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ flowId, action }),
+      });
+
+      if (!res.ok) {
+        console.error("Toggle failed");
+      }
+    } catch (err) {
+      console.error("Toggle error", err);
+    }
+  };
+
+  const getBadgeStyle = (status: FlowStatus) => {
+    if (status === "active") return "bg-green-100 text-green-800";
+    if (status === "error") return "bg-red-100 text-red-800";
+    return "bg-gray-100 text-gray-700";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Flows</h1>
-          <p className="text-muted-foreground">Manage and monitor your automation workflows.</p>
+          <p className="text-muted-foreground">
+            Manage and monitor your automation workflows.
+          </p>
         </div>
-        <Button variant="default" size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" /> New Flow
-        </Button>
+<div className="flex gap-2">
+  <Button onClick={() => (window.location.href = "/api/oauth/gmail/start")}>
+    Connect Gmail
+  </Button>
+</div>
       </div>
 
       <Card className="bg-white">
@@ -57,25 +136,30 @@ export default function FlowsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dummyFlows.map((flow) => (
+              {flows.map((flow) => (
                 <TableRow key={flow.id}>
                   <TableCell className="font-medium">{flow.name}</TableCell>
                   <TableCell>
-                    <Badge className={
-                      flow.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : flow.status === "error"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-gray-100 text-gray-700"
-                    }>
+                    <Badge className={getBadgeStyle(flow.status)}>
                       {flow.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{flow.runs}</TableCell>
                   <TableCell>{flow.lastRun}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button size="sm" variant="outline">Edit</Button>
-                    <Button size="sm" variant="destructive">Delete</Button>
+                    <Button size="sm" variant="outline">
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleToggle(flow.id, flow.status)}
+                    >
+                      {flow.status === "active" ? "Pause" : "Resume"}
+                    </Button>
+                    <Button size="sm" variant="destructive">
+                      Delete
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

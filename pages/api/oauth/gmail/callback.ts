@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { data: { user } } = await supabase.auth.getUser();
 
 if (user) {
-  // @ts-ignore: upsert type is safe, schema not typed yet
+  // @ts-expect-error
   await supabase.from("gmail_tokens").upsert({
     user_id: user.id,
     access_token: tokenData.access_token,

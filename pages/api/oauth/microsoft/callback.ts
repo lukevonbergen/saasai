@@ -1,5 +1,3 @@
-// /api/oauth/microsoft/callback.ts
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
@@ -13,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const code = req.query.code as string;
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/oauth/microsoft/callback`;
 
-    // 1. Exchange auth code for access token
+    // Exchange auth code for access token
     const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -34,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Token exchange failed', details: tokenData });
     }
 
-    // 2. Fetch user's Microsoft profile
+    // Fetch user's Microsoft profile
     const userRes = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
@@ -43,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('📧 Microsoft user:', msUser);
 
-    // 3. Extract Supabase auth token from cookies or headers
+    // Extract Supabase auth token
     const supabaseToken =
       req.headers.authorization?.replace('Bearer ', '') || req.cookies['sb-access-token'];
 
@@ -52,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // 4. Get current Supabase user
+    // Fetch Supabase user
     const {
       data: { user },
       error: userError,
@@ -63,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'User not found', details: userError });
     }
 
-    // 5. Store tokens in Supabase
+    // Store tokens
     const { error: dbError } = await supabase.from('microsoft_tokens').upsert({
       user_id: user.id,
       email,
@@ -77,10 +75,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to save token', details: dbError });
     }
 
-    // 6. Redirect to dashboard
     return res.redirect('/dashboard?connected=outlook');
-  } catch (err: any) {
-    console.error('❌ Unhandled error in Microsoft callback:', err);
-    return res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  } catch (err) {
+    if (err instanceof Error) {
+      console.error('❌ Unhandled error in Microsoft callback:', err);
+      return res.status(500).json({ error: 'Internal Server Error', details: err.message });
+    }
+
+    return res.status(500).json({ error: 'Unknown error in Microsoft callback' });
   }
 }

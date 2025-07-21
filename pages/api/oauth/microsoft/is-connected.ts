@@ -10,39 +10,31 @@ const supabase = createClient(
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Attempt to extract the Supabase token
-    const token =
-      req.headers.authorization?.replace("Bearer ", "") ||
-      req.cookies["sb-access-token"];
+    const token = req.headers.authorization?.replace("Bearer ", "") || req.cookies['sb-access-token'];
 
     if (!token) {
-      return res.status(401).json({ connected: false, error: "No auth token" });
+      return res.status(401).json({ connected: false, error: 'No auth token' });
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-    if (userError || !user) {
-      return res.status(401).json({ connected: false, error: "Unauthenticated" });
+    if (!user || error) {
+      return res.status(401).json({ connected: false, error: 'User not found' });
     }
 
-    const { data, error: dbError } = await supabase
-      .from("microsoft_tokens")
-      .select("email")
-      .eq("user_id", user.id)
-      .maybeSingle(); // <- doesn't throw on no match
+    const { data, error: tokenError } = await supabase
+      .from('microsoft_tokens')
+      .select('email')
+      .eq('user_id', user.id)
+      .single();
 
-    if (dbError) {
-      console.error("DB error:", dbError);
-      return res.status(500).json({ connected: false, error: dbError.message });
-    }
-
-    if (!data) {
+    if (tokenError || !data) {
       return res.status(200).json({ connected: false });
     }
 
     return res.status(200).json({ connected: true, email: data.email });
-  } catch (err: any) {
-    console.error("Unexpected error in is-connected:", err);
-    return res.status(500).json({ connected: false, error: "Unexpected server error" });
+  } catch (err) {
+    console.error("❌ Error in is-connected:", err);
+    return res.status(500).json({ connected: false, error: 'Unexpected error' });
   }
 }

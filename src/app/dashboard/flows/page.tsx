@@ -56,16 +56,23 @@ const initialFlows: Flow[] = [
 export default function FlowsPage() {
   const [flows, setFlows] = useState<Flow[]>(initialFlows);
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
   const [checkingGmail, setCheckingGmail] = useState(true);
 
   // Check if Gmail is connected
   useEffect(() => {
     const check = async () => {
       setCheckingGmail(true);
-      const res = await fetch("/api/gmail/is-connected");
-      const data = await res.json();
-      setGmailConnected(data.connected === true);
-      setCheckingGmail(false);
+      try {
+        const res = await fetch("/api/gmail/is-connected");
+        const data = await res.json();
+        setGmailConnected(data.connected === true);
+        setGmailEmail(data.email || null);
+      } catch (err) {
+        console.error("Failed to check Gmail status", err);
+      } finally {
+        setCheckingGmail(false);
+      }
     };
     check();
   }, []);
@@ -113,11 +120,20 @@ export default function FlowsPage() {
             Manage and monitor your automation workflows.
           </p>
         </div>
-<div className="flex gap-2">
-  <Button onClick={() => (window.location.href = "/api/oauth/gmail/start")}>
-    Connect Gmail
-  </Button>
-</div>
+
+        <div className="flex gap-2 items-center">
+          {checkingGmail ? (
+            <span className="text-sm text-muted-foreground">Checking Gmail...</span>
+          ) : gmailConnected && gmailEmail ? (
+            <Badge variant="outline" className="text-green-700 border-green-700">
+              Connected: {gmailEmail}
+            </Badge>
+          ) : (
+            <Button onClick={() => (window.location.href = "/api/oauth/gmail/start")}>
+              Connect Gmail
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card className="bg-white">

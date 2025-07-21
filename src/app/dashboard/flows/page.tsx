@@ -59,7 +59,6 @@ export default function FlowsPage() {
   const [gmailEmail, setGmailEmail] = useState<string | null>(null);
   const [checkingGmail, setCheckingGmail] = useState(true);
 
-  // Check if Gmail is connected
   useEffect(() => {
     const check = async () => {
       setCheckingGmail(true);
@@ -79,7 +78,6 @@ export default function FlowsPage() {
 
   const handleToggle = async (flowId: string, currentStatus: FlowStatus) => {
     const action = currentStatus === "active" ? "pause" : "resume";
-
     setFlows((prev) =>
       prev.map((flow) =>
         flow.id === flowId
@@ -91,15 +89,11 @@ export default function FlowsPage() {
     try {
       const res = await fetch("/api/flow/toggle", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flowId, action }),
       });
 
-      if (!res.ok) {
-        console.error("Toggle failed");
-      }
+      if (!res.ok) console.error("Toggle failed");
     } catch (err) {
       console.error("Toggle error", err);
     }
@@ -113,7 +107,7 @@ export default function FlowsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold">My Flows</h1>
           <p className="text-muted-foreground">
@@ -121,7 +115,7 @@ export default function FlowsPage() {
           </p>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
           {checkingGmail ? (
             <span className="text-sm text-muted-foreground">Checking Gmail...</span>
           ) : gmailConnected && gmailEmail ? (
@@ -142,7 +136,10 @@ export default function FlowsPage() {
               </Button>
             </div>
           ) : (
-            <Button onClick={() => (window.location.href = "/api/oauth/gmail/start")}>
+            <Button
+              onClick={() => (window.location.href = "/api/oauth/gmail/start")}
+              size="sm"
+            >
               Connect Gmail
             </Button>
           )}
@@ -154,46 +151,86 @@ export default function FlowsPage() {
           <CardTitle>Flow List</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Runs</TableHead>
-                <TableHead>Last Run</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {flows.map((flow) => (
-                <TableRow key={flow.id}>
-                  <TableCell className="font-medium">{flow.name}</TableCell>
-                  <TableCell>
-                    <Badge className={getBadgeStyle(flow.status)}>
-                      {flow.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{flow.runs}</TableCell>
-                  <TableCell>{flow.lastRun}</TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button size="sm" variant="outline">
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleToggle(flow.id, flow.status)}
-                    >
-                      {flow.status === "active" ? "Pause" : "Resume"}
-                    </Button>
-                    <Button size="sm" variant="destructive">
-                      Delete
-                    </Button>
-                  </TableCell>
+          {/* Desktop Table */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Runs</TableHead>
+                  <TableHead>Last Run</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {flows.map((flow) => (
+                  <TableRow key={flow.id}>
+                    <TableCell className="font-medium">{flow.name}</TableCell>
+                    <TableCell>
+                      <Badge className={getBadgeStyle(flow.status)}>
+                        {flow.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{flow.runs}</TableCell>
+                    <TableCell>{flow.lastRun}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button size="sm" variant="outline">
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleToggle(flow.id, flow.status)}
+                      >
+                        {flow.status === "active" ? "Pause" : "Resume"}
+                      </Button>
+                      <Button size="sm" variant="destructive">
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-4">
+            {flows.map((flow) => (
+              <div
+                key={flow.id}
+                className="border rounded-lg p-4 shadow-sm bg-gray-50 space-y-2"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="font-semibold">{flow.name}</div>
+                  <Badge className={getBadgeStyle(flow.status)}>
+                    {flow.status}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <div>Runs: {flow.runs}</div>
+                  <div>Last Run: {flow.lastRun}</div>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button size="sm" variant="outline" className="flex-1">
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => handleToggle(flow.id, flow.status)}
+                  >
+                    {flow.status === "active" ? "Pause" : "Resume"}
+                  </Button>
+                  <Button size="sm" variant="destructive" className="flex-1">
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

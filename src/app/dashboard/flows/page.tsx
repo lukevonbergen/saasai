@@ -125,9 +125,22 @@ export default function FlowsPage() {
           {checkingGmail ? (
             <span className="text-sm text-muted-foreground">Checking Gmail...</span>
           ) : gmailConnected && gmailEmail ? (
-            <Badge variant="outline" className="text-green-700 border-green-700">
-              Connected: {gmailEmail}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-green-700 border-green-700">
+                Connected: {gmailEmail}
+              </Badge>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  await fetch("/api/oauth/gmail/disconnect");
+                  setGmailConnected(false);
+                  setGmailEmail(null);
+                }}
+              >
+                Disconnect
+              </Button>
+            </div>
           ) : (
             <Button onClick={() => (window.location.href = "/api/oauth/gmail/start")}>
               Connect Gmail

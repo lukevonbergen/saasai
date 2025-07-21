@@ -1,8 +1,8 @@
 // /pages/api/oauth/microsoft/callback.ts
 
-import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
-import { parse } from "cookie";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { createClient } from '@supabase/supabase-js';
+import { parse } from 'cookie';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,64 +14,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const code = req.query.code as string;
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/oauth/microsoft/callback`;
 
-    // Step 1: Exchange code for token
-    const tokenRes = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: process.env.MICROSOFT_CLIENT_ID!,
         client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
         code,
-        grant_type: "authorization_code",
+        grant_type: 'authorization_code',
         redirect_uri: redirectUri,
-        scope: "offline_access Mail.ReadWrite Mail.Send User.Read",
-      }),
+        scope: 'offline_access Mail.ReadWrite Mail.Send User.Read'
+      })
     });
 
     const tokenData = await tokenRes.json();
+    console.log('🔁 Token exchange response:', tokenData);
+
     if (!tokenData.access_token) {
-      return res.status(400).json({ error: "Token exchange failed", details: tokenData });
+      return res.status(400).json({ error: 'OAuth token exchange failed', details: tokenData });
     }
 
-    // Step 2: Get Microsoft user's email
-    const userRes = await fetch("https://graph.microsoft.com/v1.0/me", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    // Fetch Microsoft user info
+    const msUserRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
-    const msUser = await userRes.json();
+    const msUser = await msUserRes.json();
+    console.log('📧 Microsoft user:', msUser);
 
-    const cookies = parse(req.headers.cookie || "");
-    const accessToken = cookies["sb-access-token"];
+    // Manually parse cookies to get Supabase access token
+    const cookies = parse(req.headers.cookie || '');
+    const token =
+      req.headers.authorization?.replace('Bearer ', '') ||
+      cookies['sb-access-token'];
 
-    if (!accessToken) {
-      return res.status(401).json({ error: "User not authenticated (no access token)" });
+    if (!token) {
+      console.error('❌ Missing Supabase auth token');
+      return res.status(401).json({ error: 'User not authenticated (no access token)' });
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(accessToken);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (!user || authError) {
-      return res.status(401).json({ error: "User not authenticated", details: authError });
+    if (!user || userError) {
+      console.error('❌ Supabase user fetch error:', userError);
+      return res.status(401).json({ error: 'User not found', details: userError });
     }
 
     const email = msUser.mail || msUser.userPrincipalName || null;
 
-    const { error: upsertError } = await supabase.from("microsoft_tokens").upsert({
-      user_id: user.id,
-      email,
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token,
-      expires_at: Date.now() + tokenData.expires_in * 1000,
-    });
+    const { error: upsertError } = await supabase
+      .from('microsoft_tokens')
+      .upsert({
+        user_id: user.id,
+        email,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_at: Date.now() + tokenData.expires_in * 1000,
+      });
 
     if (upsertError) {
-      return res.status(500).json({ error: "Token save failed", details: upsertError });
+      console.error('❌ Token save failed:', upsertError);
+      return res.status(500).json({ error: 'Failed to save token', details: upsertError });
     }
 
-    return res.redirect("/dashboard?connected=outlook");
-  } catch (err: unknown) {
-    console.error("Callback error:", err);
-    return res.status(500).json({ error: "Unexpected error", details: (err as Error).message });
+    return res.redirect('/dashboard?connected=outlook');
+  } catch (err: any) {
+    console.error('❌ General error in Microsoft callback:', err);
+    return res.status(500).json({ error: 'Unhandled error', details: err.message || err });
   }
 }

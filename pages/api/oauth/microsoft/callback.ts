@@ -35,25 +35,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'OAuth token exchange failed', details: tokenData });
     }
 
-    // Fetch Microsoft user info
+    // Fetch Microsoft account info
     const msUserRes = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
+
     const msUser = await msUserRes.json();
     console.log('📧 Microsoft user:', msUser);
 
-    // Manually parse cookies to get Supabase access token
-    const cookies = parse(req.headers.cookie || '');
-    const token =
-      req.headers.authorization?.replace('Bearer ', '') ||
-      cookies['sb-access-token'];
+    // Extract token from cookie
+    const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
+    const accessToken = cookies['sb-access-token'];
 
-    if (!token) {
-      console.error('❌ Missing Supabase auth token');
+    if (!accessToken) {
+      console.error('❌ Missing Supabase access token');
       return res.status(401).json({ error: 'User not authenticated (no access token)' });
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser(accessToken);
 
     if (!user || userError) {
       console.error('❌ Supabase user fetch error:', userError);
@@ -62,15 +64,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const email = msUser.mail || msUser.userPrincipalName || null;
 
-    const { error: upsertError } = await supabase
-      .from('microsoft_tokens')
-      .upsert({
-        user_id: user.id,
-        email,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: Date.now() + tokenData.expires_in * 1000,
-      });
+    // Save token to Supabase
+    const { error: upsertError } = await supabase.from('microsoft_tokens').upsert({
+      user_id: user.id,
+      email,
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: Date.now() + tokenData.expires_in * 1000
+    });
 
     if (upsertError) {
       console.error('❌ Token save failed:', upsertError);
@@ -78,8 +79,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.redirect('/dashboard?connected=outlook');
-  } catch (err: any) {
-    console.error('❌ General error in Microsoft callback:', err);
-    return res.status(500).json({ error: 'Unhandled error', details: err.message || err });
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error('❌ General error in Microsoft callback:', error);
+    return res.status(500).json({ error: 'Unhandled error', details: error });
   }
 }

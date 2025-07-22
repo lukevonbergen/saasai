@@ -177,14 +177,28 @@ export default function FlowsPage() {
           title="Outlook"
           provider={outlook}
           onDisconnect={async () => {
-            await fetch('/api/oauth/microsoft/disconnect');
-            setOutlook(prev => ({
-              ...prev,
-              connected: false,
-              email: null,
-              expires_at: null,
-            }));
-          }}
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (!session?.access_token) {
+            alert("No active session found.");
+            return;
+          }
+
+          await fetch('/api/oauth/microsoft/disconnect', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          setOutlook(prev => ({
+            ...prev,
+            connected: false,
+            email: null,
+            expires_at: null,
+          }));
+        }}
+
           onConnect={handleOutlookConnect}
           variant="blue"
         />

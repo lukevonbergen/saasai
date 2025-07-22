@@ -13,6 +13,7 @@ const links = [
   { label: "Create Flow", href: "/dashboard/create" },
   { label: "Run History", href: "/dashboard/history" },
   { label: "Notifications", href: "/dashboard/notifications" },
+  { label: "Connections", href: "/dashboard/connections" },
   { label: "Usage", href: "/dashboard/usage" },
   { label: "Billing", href: "/dashboard/billing" },
   { label: "Team", href: "/dashboard/team" },

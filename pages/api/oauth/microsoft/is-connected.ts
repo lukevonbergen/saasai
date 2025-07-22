@@ -1,5 +1,3 @@
-// /pages/api/oauth/microsoft/is-connected.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { parse } from "cookie";
@@ -29,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data, error: tokenError } = await supabase
       .from("microsoft_tokens")
-      .select("email")
+      .select("email, expires_at")
       .eq("user_id", user.id)
       .single();
 
@@ -37,7 +35,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ connected: false });
     }
 
-    return res.status(200).json({ connected: true, email: data.email });
+    return res.status(200).json({
+      connected: true,
+      email: data.email,
+      expires_at: data.expires_at,
+    });
   } catch (err: unknown) {
     return res.status(500).json({ connected: false, error: (err as Error).message });
   }

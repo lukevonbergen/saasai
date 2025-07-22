@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from("microsoft_tokens")
       .select("email, expires_at")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (tokenError || !data?.email) {
       return res.status(200).json({ connected: false });

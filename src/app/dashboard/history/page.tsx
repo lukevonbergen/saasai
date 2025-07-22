@@ -9,6 +9,7 @@ interface MicrosoftTokenResult {
   expires_at?: string;
   email?: string;
   error?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 

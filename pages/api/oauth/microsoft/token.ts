@@ -11,44 +11,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace("Bearer ", "");
+    let userId: string | null = null;
 
-    if (!token) {
-      console.warn("❌ No Authorization header sent");
-      return res.status(401).json({ error: "Missing authorization token" });
+    if (token) {
+      // Use Supabase auth to extract user ID
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser(token);
+
+      if (user && !userError) {
+        userId = user.id;
+        console.log("🔐 Authenticated user:", userId);
+      } else {
+        return res.status(401).json({ error: "Unauthenticated", details: userError });
+      }
+    } else if (req.query.user_id && typeof req.query.user_id === 'string') {
+      // Fallback to user_id from query string
+      userId = req.query.user_id;
+      console.log("🛠️ Using direct user_id:", userId);
+    } else {
+      return res.status(401).json({ error: "Missing authorization token or user_id" });
     }
 
-    console.log("🔐 Supabase token received:", token.slice(0, 20) + '...');
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
-
-    if (!user || userError) {
-      console.warn("❌ Supabase auth failed:", userError);
-      return res.status(401).json({ error: "Unauthenticated", details: userError });
-    }
-
-    console.log("👤 Supabase user ID:", user.id);
-
+    // Fetch the token record
     const { data: record, error: tokenError } = await supabase
       .from("microsoft_tokens")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (tokenError || !record) {
-      console.warn("⚠️ No token record found for user:", user.id);
       return res.status(404).json({ error: "No Microsoft token found" });
     }
-
-    console.log("📄 Token record retrieved for:", record.email);
 
     const now = Date.now();
     const isExpired = record.expires_at && record.expires_at < now;
 
     if (isExpired) {
-      console.log("🔄 Token expired — refreshing...");
+      console.log("🔄 Refreshing expired token...");
 
       const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
@@ -66,7 +67,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const newToken = await response.json();
 
       if (!newToken.access_token) {
-        console.error("❌ Refresh failed:", newToken);
         return res.status(400).json({ error: "Token refresh failed", details: newToken });
       }
 
@@ -77,16 +77,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updated_at: new Date(),
       };
 
-      console.log("✅ Token refreshed. Saving to DB...");
-
-      const { error: updateError } = await supabase
+      await supabase
         .from("microsoft_tokens")
         .update(updatedToken)
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        console.error("❌ Failed to update token in DB:", updateError);
-      }
+        .eq("user_id", userId);
 
       return res.status(200).json({
         access_token: updatedToken.access_token,
@@ -97,9 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Token still valid — return current record
-    console.log("✅ Token still valid. Returning as-is.");
-
+    // Token is still valid
     return res.status(200).json({
       access_token: record.access_token,
       refresh_token: record.refresh_token,
@@ -109,7 +101,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : String(err);
-    console.error("❌ Unhandled error in token.ts:", error);
     return res.status(500).json({ error: "Internal server error", details: error });
   }
 }

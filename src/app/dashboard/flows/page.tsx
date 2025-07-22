@@ -1,59 +1,12 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-
-type FlowStatus = "active" | "inactive" | "error";
-
-interface Flow {
-  id: string;
-  name: string;
-  status: FlowStatus;
-  runs: number;
-  lastRun: string;
-}
-
-const initialFlows: Flow[] = [
-  {
-    id: "flow-1",
-    name: "Gmail Responser",
-    status: "active",
-    runs: 25,
-    lastRun: "2025-07-15 14:32",
-  },
-  {
-    id: "flow-2",
-    name: "CRM Lead Sync",
-    status: "error",
-    runs: 5,
-    lastRun: "2025-07-14 09:12",
-  },
-  {
-    id: "flow-3",
-    name: "Slack New User Alert",
-    status: "inactive",
-    runs: 18,
-    lastRun: "2025-07-13 17:45",
-  },
-];
 
 export default function FlowsPage() {
-  const [flows, setFlows] = useState<Flow[]>(initialFlows);
+  const supabase = useSupabaseClient();
 
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState<string | null>(null);
@@ -96,46 +49,30 @@ export default function FlowsPage() {
     checkOutlook();
   }, []);
 
-  const handleToggle = async (flowId: string, currentStatus: FlowStatus) => {
-    const action = currentStatus === "active" ? "pause" : "resume";
-    setFlows((prev) =>
-      prev.map((flow) =>
-        flow.id === flowId
-          ? { ...flow, status: action === "pause" ? "inactive" : "active" }
-          : flow
-      )
-    );
+  const handleOutlookConnect = async () => {
+    const { data: { session }, error } = await supabase.auth.getSession();
 
-    try {
-      const res = await fetch("/api/flow/toggle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ flowId, action }),
-      });
-
-      if (!res.ok) console.error("Toggle failed");
-    } catch (err) {
-      console.error("Toggle error", err);
+    if (!session?.access_token) {
+      alert("Please log in first.");
+      return;
     }
-  };
 
-  const getBadgeStyle = (status: FlowStatus) => {
-    if (status === "active") return "bg-green-100 text-green-800";
-    if (status === "error") return "bg-red-100 text-red-800";
-    return "bg-gray-100 text-gray-700";
+    document.cookie = `sb-access-token=${session.access_token}; path=/; Secure; SameSite=Lax`;
+    window.location.href = "/api/oauth/microsoft/redirect";
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">My Flows</h1>
+          <h1 className="text-2xl font-bold">Connect Accounts</h1>
           <p className="text-muted-foreground">
-            Manage and monitor your automation workflows.
+            Link your email providers to enable automation workflows.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
+          {/* Gmail Section */}
           {checkingGmail ? (
             <span className="text-sm text-muted-foreground">Checking Gmail...</span>
           ) : gmailConnected && gmailEmail ? (
@@ -164,6 +101,7 @@ export default function FlowsPage() {
             </Button>
           )}
 
+          {/* Outlook Section */}
           {checkingOutlook ? (
             <span className="text-sm text-muted-foreground">Checking Outlook...</span>
           ) : outlookConnected && outlookEmail ? (
@@ -185,7 +123,7 @@ export default function FlowsPage() {
             </div>
           ) : (
             <Button
-              onClick={() => (window.location.href = "/api/oauth/microsoft/redirect")}
+              onClick={handleOutlookConnect}
               size="sm"
               variant="secondary"
             >
@@ -194,56 +132,6 @@ export default function FlowsPage() {
           )}
         </div>
       </div>
-
-      <Card className="bg-white">
-        <CardHeader>
-          <CardTitle>Flow List</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Runs</TableHead>
-                  <TableHead>Last Run</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {flows.map((flow) => (
-                  <TableRow key={flow.id}>
-                    <TableCell className="font-medium">{flow.name}</TableCell>
-                    <TableCell>
-                      <Badge className={getBadgeStyle(flow.status)}>
-                        {flow.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{flow.runs}</TableCell>
-                    <TableCell>{flow.lastRun}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline">
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleToggle(flow.id, flow.status)}
-                      >
-                        {flow.status === "active" ? "Pause" : "Resume"}
-                      </Button>
-                      <Button size="sm" variant="destructive">
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

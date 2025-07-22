@@ -10,7 +10,7 @@ import { Menu, X } from "lucide-react"; // icons
 const links = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "My Flows", href: "/dashboard/flows" },
-  { label: "Create Flow", href: "/dashboard/create" },
+  { label: "Marketplace", href: "/dashboard/marketplace" },
   { label: "Run History", href: "/dashboard/history" },
   { label: "Notifications", href: "/dashboard/notifications" },
   { label: "Connections", href: "/dashboard/connections" },

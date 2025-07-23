@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { parse } from 'cookie';
 
+// Create Supabase client with service role key
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Missing or invalid flow_name or is_active' });
   }
 
-  // Parse access token from cookies
+  // Parse cookie for Supabase access token
   const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
   const accessToken = cookies['sb-access-token'];
 
@@ -26,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'User not authenticated (no access token)' });
   }
 
+  // Get authenticated user using access token
   const {
     data: { user },
     error: userError
@@ -36,18 +38,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'User not found', details: userError });
   }
 
-  // Upsert user_flows with proper conflict constraint name
+  // Perform upsert on user_flows table
   const { error: upsertError } = await supabase
     .from('user_flows')
     .upsert(
+      [
+        {
+          user_id: user.id,
+          flow_name,
+          is_active,
+          updated_at: new Date().toISOString()
+        }
+      ],
       {
-        user_id: user.id,
-        flow_name,
-        is_active,
-        updated_at: new Date().toISOString()
-      },
-      {
-        onConflict: 'user_flows_user_id_flow_name_key'
+        onConflict: 'user_id,flow_name'
       }
     );
 

@@ -36,16 +36,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'User not found', details: userError });
   }
 
-  // Upsert into user_flows
-  const { error: upsertError } = await supabase.from('user_flows').upsert({
-    user_id: user.id,
-    flow_name,
-    is_active,
-    updated_at: new Date().toISOString()
-  });
+  // Upsert into user_flows with conflict resolution
+  const { error: upsertError } = await supabase
+  .from('user_flows')
+  .upsert(
+    {
+      user_id: user.id,
+      flow_name,
+      is_active,
+      updated_at: new Date().toISOString()
+    },
+    {
+      onConflict: 'user_id,flow_name'
+    }
+  );
 
   if (upsertError) {
-    console.error('❌ Failed to update user_flows:', upsertError);
+    console.error('❌ Failed to upsert user_flows:', upsertError);
     return res.status(500).json({ error: 'Failed to update flow', details: upsertError });
   }
 

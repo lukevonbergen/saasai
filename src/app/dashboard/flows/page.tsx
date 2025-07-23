@@ -5,13 +5,14 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 export default function FlowsPage() {
   const supabase = createClientComponentClient();
 
-  const [isPaused, setIsPaused] = useState(true); // default to paused
-  const [isLoading, setIsLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
+  const [isActive, setIsActive] = useState(false); // flow default
+  const [isLoading, setIsLoading] = useState(true); // page load
+  const [isToggling, setIsToggling] = useState(false); // toggle action
   const [microsoftConnected, setMicrosoftConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function FlowsPage() {
           console.error('Error loading flow status:', flowError);
         }
 
-        setIsPaused(!flowData?.is_active); // true if inactive
+        setIsActive(flowData?.is_active ?? false);
       }
 
       setIsLoading(false);
@@ -68,22 +69,22 @@ export default function FlowsPage() {
   }, [supabase]);
 
   const handleToggle = async () => {
-    const nextState = !isPaused;
+    const nextState = !isActive;
     setIsToggling(true);
-    setIsPaused(nextState); // optimistic UI
+    setIsActive(nextState); // optimistic
 
     const res = await fetch('/api/flow/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         flow_name: 'lead_responder',
-        is_active: !isPaused
+        is_active: nextState
       })
     });
 
     if (!res.ok) {
       console.error('❌ Failed to toggle flow');
-      setIsPaused(!nextState); // rollback
+      setIsActive(!nextState); // rollback
     }
 
     setIsToggling(false);
@@ -103,8 +104,8 @@ export default function FlowsPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               Inbound Lead Responder
-              <Badge className={isPaused ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-800'}>
-                {isPaused ? 'Inactive' : 'Active'}
+              <Badge className={isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}>
+                {isActive ? 'Active' : 'Inactive'}
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -115,19 +116,13 @@ export default function FlowsPage() {
 
             <div className="pt-2">
               <Button
-                variant={isPaused ? 'default' : 'destructive'}
+                variant={isActive ? 'destructive' : 'default'}
                 size="sm"
                 onClick={handleToggle}
                 disabled={isToggling}
               >
-                {isToggling ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                    Updating...
-                  </span>
-                ) : (
-                  isPaused ? 'Activate Flow' : 'Pause Flow'
-                )}
+                {isToggling && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {isActive ? 'Pause Flow' : 'Activate Flow'}
               </Button>
             </div>
           </CardContent>

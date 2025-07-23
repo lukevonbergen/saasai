@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Missing or invalid flow_name or is_active' });
   }
 
-  // Get logged-in user from cookie
+  // Parse access token from cookies
   const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
   const accessToken = cookies['sb-access-token'];
 
@@ -36,20 +36,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'User not found', details: userError });
   }
 
-  // Upsert into user_flows with conflict resolution
+  // Upsert user_flows with proper conflict constraint name
   const { error: upsertError } = await supabase
-  .from('user_flows')
-  .upsert(
-    {
-      user_id: user.id,
-      flow_name,
-      is_active,
-      updated_at: new Date().toISOString()
-    },
-    {
-      onConflict: 'user_id,flow_name'
-    }
-  );
+    .from('user_flows')
+    .upsert(
+      {
+        user_id: user.id,
+        flow_name,
+        is_active,
+        updated_at: new Date().toISOString()
+      },
+      {
+        onConflict: 'user_flows_user_id_flow_name_key'
+      }
+    );
 
   if (upsertError) {
     console.error('❌ Failed to upsert user_flows:', upsertError);

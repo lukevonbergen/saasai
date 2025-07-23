@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 export async function getUserFlows(userId: string) {
   const { data, error } = await supabase
     .from("user_flows")
-    .select("id, workflow_id, active, created_at")
+    .select("id, flow_name, is_active, created_at")
     .eq("user_id", userId);
 
   if (error) {
@@ -14,12 +14,12 @@ export async function getUserFlows(userId: string) {
   return data;
 }
 
-export async function getSingleFlow(userId: string, workflowId: string) {
+export async function getSingleFlow(userId: string, flowName: string) {
   const { data, error } = await supabase
     .from("user_flows")
     .select("*")
     .eq("user_id", userId)
-    .eq("workflow_id", workflowId)
+    .eq("flow_name", flowName)
     .single();
 
   if (error) {

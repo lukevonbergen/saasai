@@ -50,7 +50,7 @@ export default function ConnectionsPage() {
     };
 
     fetchStatus('/api/gmail/is-connected', setGmail);
-    fetchStatus('/api/oauth/microsoft/is-connected', setOutlook);
+    fetchStatus('/api/oauth/microsoft/status', setOutlook);
   }, []);
 
   const handleOutlookConnect = async () => {

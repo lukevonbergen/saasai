@@ -1,5 +1,3 @@
-// /pages/api/oauth/microsoft/callback.ts
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { parse } from 'cookie';
@@ -14,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const code = req.query.code as string;
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/oauth/microsoft/callback`;
 
-    // Exchange code for tokens
+    // Step 1: Exchange code for access + refresh tokens
     const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -35,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'OAuth token exchange failed', details: tokenData });
     }
 
-    // Fetch Microsoft account info
+    // Step 2: Fetch Microsoft user info
     const msUserRes = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
@@ -43,7 +41,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const msUser = await msUserRes.json();
     console.log('📧 Microsoft user:', msUser);
 
-    // Extract token from cookie
+    const email = msUser.mail || msUser.userPrincipalName || null;
+
+    // Step 3: Extract sb-access-token cookie and get Supabase user
     const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
     const accessToken = cookies['sb-access-token'];
 
@@ -62,9 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'User not found', details: userError });
     }
 
-    const email = msUser.mail || msUser.userPrincipalName || null;
-
-    // Save token to Supabase
+    // Step 4: Store tokens
     const { error: upsertError } = await supabase.from('microsoft_tokens').upsert({
       user_id: user.id,
       email,
@@ -78,6 +76,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to save token', details: upsertError });
     }
 
+    // ✅ Step 5: Mark user as connected in user_connected_services
+    const { error: serviceUpdateError } = await supabase
+      .from('user_connected_services')
+      .upsert({
+        user_id: user.id,
+        microsoft_is_connected: true,
+        updated_at: new Date().toISOString()
+      });
+
+    if (serviceUpdateError) {
+      console.error('❌ Failed to update user_connected_services:', serviceUpdateError);
+      return res.status(500).json({ error: 'Failed to update connected service', details: serviceUpdateError });
+    }
+
+    // ✅ Step 6: Redirect to dashboard
     return res.redirect('/dashboard?connected=outlook');
   } catch (err: unknown) {
     const error = err instanceof Error ? err.message : String(err);

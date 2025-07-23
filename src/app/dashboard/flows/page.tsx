@@ -11,6 +11,7 @@ export default function FlowsPage() {
 
   const [isPaused, setIsPaused] = useState(true); // default to paused
   const [isLoading, setIsLoading] = useState(true);
+  const [isToggling, setIsToggling] = useState(false);
   const [microsoftConnected, setMicrosoftConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function FlowsPage() {
 
   const handleToggle = async () => {
     const nextState = !isPaused;
+    setIsToggling(true);
     setIsPaused(nextState); // optimistic UI
 
     const res = await fetch('/api/flow/toggle', {
@@ -83,6 +85,8 @@ export default function FlowsPage() {
       console.error('❌ Failed to toggle flow');
       setIsPaused(!nextState); // rollback
     }
+
+    setIsToggling(false);
   };
 
   if (isLoading) return null;
@@ -114,8 +118,16 @@ export default function FlowsPage() {
                 variant={isPaused ? 'default' : 'destructive'}
                 size="sm"
                 onClick={handleToggle}
+                disabled={isToggling}
               >
-                {isPaused ? 'Activate Flow' : 'Pause Flow'}
+                {isToggling ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    Updating...
+                  </span>
+                ) : (
+                  isPaused ? 'Activate Flow' : 'Pause Flow'
+                )}
               </Button>
             </div>
           </CardContent>
